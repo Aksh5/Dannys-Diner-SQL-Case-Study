@@ -82,13 +82,59 @@ join menu m on s.product_id = m.product_id
 order by f.customer_id;
 
 -- 7. Which item was purchased just before the customer became a member?
-
+with before_membership_orders as (
+select s.customer_id, s.order_date, m.product_name, mem.join_date
+from sales s 
+join menu m on s.product_id = m.product_id
+join members mem on s.customer_id = mem.customer_id
+where s.order_date < mem.join_date
+),
+latest_before_join as (
+select customer_id,
+max(order_date) as last_order_before_join
+from before_membership_orders
+group by customer_id
+)
+select 
+bmo.customer_id, bmo.product_name, bmo.order_date
+from before_membership_orders bmo
+join latest_before_join lbj
+on bmo.customer_id = lbj.customer_id
+and bmo.order_date = lbj.last_order_before_join
+order by bmo.customer_id;
 
 -- 8. What is the total items and amount spent for each member before they became a member?
-
+select s.customer_id, count(*) as total_items_before_membership,
+sum(m.price) as total_amount_spent_before_membership
+From sales s
+join menu m on s.product_id = m.product_id
+join members mem on s.customer_id = mem.customer_id
+where s.order_date < mem.join_date
+group by s.customer_id
+order by s.customer_id;
 
 -- 9. If each $10 spent equates to 1 point, how many points would each customer have?
-
+select s.customer_id , FLOOR(sum(m.price) / 10) as total_points
+from sales s
+join menu m
+on s.product_id = m.product_id
+group by s.customer_id
+order by s.customer_id;
 
 -- 10. In the first week after a customer joins, they earn 2x points on all items. Calculate total points considering this rule.
+select s.customer_id, 
+sum(
+case 
+when s.order_date between mem.join_date and DATEADD(day, 6, mem.join_date)
+then FLOOR(m.price / 10.0) * 2
+else FLOOR(m.price / 10.0)
+end
+) as total_points
+from sales s
+join menu m on s.product_id = m.product_id
+join members mem on s.customer_id = mem.customer_id
+group by s.customer_id
+order by s.customer_id;
+
+
 
